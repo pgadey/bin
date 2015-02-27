@@ -1,8 +1,18 @@
 #!/bin/sh
+
 # soc - Stream Of Consciousness mini-logger
 # Copyright 2014 David Meyer <papa@sdf.org> +JMJ
-
 # grabbed from : https://tilde.center/~papa/soc.html
+
+# Modified by pgadey to include:
+#	-- total entry count
+#	-- anchors to all dates
+
+# to do:
+# 	-- split in to static blog generator and post creator
+
+
+
 
 socdir=/home/pgadey/public_html/soc
 socext=soc
