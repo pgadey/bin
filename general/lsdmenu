@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# a simple dmenu driver
+
+# dmenu defaults
+if [ -f ~/.dmenurc ]; then
+	source ~/.dmenurc
+else
+    DMENU="dmenu"
+fi
+
+#APPEND=$(tree -i -L 1 -d --noreport | $DMENU -p `pwd`)
+APPEND=$(ls -d */ | $DMENU -p `pwd`)
+
+echo "$PWD/$APPEND"
+

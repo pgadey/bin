@@ -1,0 +1,34 @@
+#!/bin/bash
+
+echo $monDisabled
+
+if [ -z "$1" ] #NO argument provided
+	then
+	if [ monDisabled = 1 ]
+		then
+			echo "Enabled (No arguments)"
+			export monDisabled=0
+		#vbetool dpms off
+		else 
+			echo Disabled No arguments
+			export monDisabled="1"
+		#vbetool dmps on
+	fi
+	else #Argument provided
+	if [ "$1" = 1 ]
+		then
+		 echo Enabled With arguments
+		#vbetool dpms on
+		else
+		if [ "$1" = 0 ]
+			then
+		 		echo Disabled
+				#vbetool dpms off
+			else
+				echo montoggle only accepts 0 or 1
+		fi
+	fi
+fi
+
+
+

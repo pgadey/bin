@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# dwb --new-instance --override-restore `echo -e "http://gmail.com\n http://duckduckgo.com\n http://google.com/\n http://boardgamegeek.net\n http://pgadey.wordpress.com" | dmenu`
+
+# Launch dmenu to select which dwb bookmark to open.
+dwb --new-instance --override-restore `cat $HOME/.config/dwb/default/bookmarks | grep http | dmenu | cut --delim=' ' --fields=1`

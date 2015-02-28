@@ -1,0 +1,25 @@
+#!/bin/bash
+tr -c "[:digit:]""[!@#$%^&*()_+]" " " < /dev/urandom | dd cbs=$COLUMNS conv=lcase,unblock | GREP_COLOR="1;32" grep --color "[^ ]"
+
+## http://ubuntuforums.org/showthread.php?t=1753400
+## Something a colleague showed me a few years back - basically a matrix-like screen saver. As I understand it.....
+##
+##Code:
+##
+##tr -c "[:digit:]""[!@#$%^&*()_+]" " " < /dev/urandom
+##
+##randomizes a string of characters
+##
+##Code:
+##
+##dd cbs=$COLUMNS conv=lcase,unblock
+##
+##recodes the stream to the terminal such that:
+##- cbs = it converts terminal_width bytes at a time
+##- conv = it converts upper to lower case and replaces trailing spaces with a newline
+##
+##Code:
+##
+##GREP_COLOR="1;32" grep --color "[^ ]"
+##
+##colours it green 

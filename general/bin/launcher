@@ -1,0 +1,5 @@
+#!/bin/bash
+
+thunar `find ~/ -maxdepth 3 -type d | dmenu -fn '10x20' -nb black -nf white -sb white -sf black -p '>>'`
+
+

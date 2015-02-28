@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# A simple wrapper for downloading files with dwb.
+# It should try to guess where you want a file to.
+
+dwb_uri=$1
+dwb_output=$2
+dwb_cookies=$3
+
+## The default downloader that ships with dwb
+#wget $dwb_uri -O $dwb_output --load-cookies $dwb_cookies
+
+## A test downloader
+#echo $dwb_uri $dwb_output $dwb_cookies >> ~/downloads.test
+
+#case "$dwb_uri" in
+#    # example: save torrents to a separate directory
+#    *.torrent)
+#        path="$UZBL_DOWNLOAD_DIR/torrent/$suggested_filename"
+#        ;;
+#    *.pdf)
+#        path="$UZBL_DOWNLOAD_DIR/pdf/$suggested_filename"
+#        ;;
+#    ## Default case
+#    *)
+#        path="$UZBL_DOWNLOAD_DIR/$suggested_filename"
+#        ;;
+#esac
+
+# -U firefox imitates FireFox. (ArXiv gets scared when approached by wget.)
+# -tries=20 (default) enabled retrying of broken downloads
+
+base=`basename "$dwb_output"`
+
+case "$base" in
+	*.torrent)
+		echo "TORRENT DETECTED!"
+		wget -U firefox --tries=20 "$dwb_uri" -O "$HOME/Torrents/$base" --load-cookies "$dwb_cookies"
+		;;
+	*.pdf)
+		echo "PDF DETECTED!"
+		wget -U firefox --tries=20 "$dwb_uri" -O "$HOME/School/Papers/$base" --load-cookies "$dwb_cookies"
+		;;
+	*.djvu)
+		echo "DJVU DETECTED!"
+		wget -U firefox --tries=20 "$dwb_uri" -O "$HOME/School/Papers/$base" --load-cookies "$dwb_cookies"
+		;;
+	*)
+		# This image detection hack is becase case commands don't
+		# have full regex support.
+		if [[ "$base" =~ (jpeg|jpg|png|gif)$ ]]
+		then
+			echo "IMAGE DETECTED!"
+			wget -U firefox --tries=20 "$dwb_uri" -O "$HOME/pic/$base" --load-cookies "$dwb_cookies"
+			exit
+		fi
+
+		echo "DOWNLOAD THE STUFF!"
+		wget -U firefox --tries=20 "$dwb_uri" -O "$HOME/dwnld/$base" --load-cookies "$dwb_cookies"
+		;;
+esac

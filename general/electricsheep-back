@@ -1,0 +1,2 @@
+#!/bin/bash
+electricsheep -window-id $(xwininfo -name Desktop | grep 'Window id' | cut -f4 -d\ )

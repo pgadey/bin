@@ -1,0 +1,1655 @@
+#! /bin/bash
+
+#-----------------------------------------------------------------------------
+#
+# author sudodus alias nio-wiklund at launchpad
+#
+# date        editor   comment
+# 2013-06-25  sudodus  linux installer from tarball of installed system
+# 2013-06-27  sudodus  raring.tar.gz
+# 2013-08-09  sudodus  removed lame logic for wipe as alternative to install
+# 2013-09-22  sudodus  mktst selector introduced in mkusb
+# 2013-09-24  sudodus  help text managed also for text screen
+# 2013-09-26  sudodus  mktst selector tweaked for mkusb
+# 2013-09-26  sudodus  mkusb cleaned, version 4.0
+# 2013-11-17  sudodus  not only check also offer installation of pv
+# 2013-11-22  sudodus  mkusb version 5.0
+# 2014-01-06  sudodus  mkusb version 6.0 calls to sudo removed
+# 2014-01-29  sudodus  identification of 'livedrive' fixed for live session
+# 2014-01-29  sudodus  mkusb version 7.0
+# 2014-01-30  sudodus  more livedrive fixes: CD, cloned iso, grub-n-iso,
+#                      unetbootin, usb-creator-gtk
+# 2014-01-30  sudodus  mkusb version 7.1
+# 2014-03-06  sudodus  fix to recognize debian iso file and work from CD
+# 2014-03-06  sudodus  mkusb version 7.2
+# 2014-03-09  sudodus  second parameter 'all' to start seeing all drives
+#                      usbonly=false
+# 2014-03-09  sudodus  mkusb version 7.3
+# 2014-03-13  sudodus  switch for help window
+# 2014-03-14  sudodus  writing "Done" after installation (for xterm -hold) 
+# 2014-03-14  sudodus  mkusb version 7.4
+# 2014-07-15  sudodus  mkusb version 8.0-RC
+# 2014-07-15  sudodus  text mode menus with dialog ...
+# 2014-07-15  sudodus  function splash
+# 2014-07-17  sudodus  function mkhelp: help text generator separated
+# 2014-07-17  sudodus  function select_device: borrowed from the OBI
+# 2014-07-17  sudodus  function list_drives: improved drive recognition
+# 2014-07-17  sudodus  rename mktst --> mkcmd_runcmd: existed but modified
+# 2014-07-18  sudodus  mkhelp: improved help text
+# 2014-07-18  sudodus  mkusb8-rc uploaded
+# 2014-07-19  sudodus  outer shell and menu selection of input file
+# 2014-07-19  sudodus  function usage_prep_final (previous main program)
+# 2014-07-19  sudodus  function menu_shell
+# 2014-07-19  sudodus  function special_file_select
+# 2014-07-19  sudodus  function general_file_select
+# 2014-07-19  sudodus  function select_source
+# 2014-07-21  sudodus  function check_packages
+# 2014-07-21  sudodus  uncompressed image files can be used for input
+# 2014-07-21  sudodus  mkusb8-rc2 uploaded
+# 2014-07-25  sudodus  install cannot be selected if no input file
+# 2014-07-25  sudodus  usage message mofified for version 8.0
+# 2014-07-25  sudodus  mkusb version 8.0
+# 2014-07-27  sudodus  list_drives bugfix: sync size with other data
+# 2014-07-27  sudodus  function ch_display
+# 2014-07-27  sudodus  reduced focus on help text --> advanced help
+# 2014-07-27  sudodus  mkusb version 8.1
+# 2014-07-28  sudodus  zenity file selection menus in graphic mode
+# 2014-07-29  sudodus  LANG: local language except during select_device
+# 2014-07-29  sudodus  mkusb version 8.2
+# 2014-07-30  sudodus  automatic selection of zenity via usage test
+#                      works in text screen and terminal windows
+#                      works locally and remotely via ssh -X
+# 2014-07-30  sudodus  mkusb version 8.3
+# 2014-08.02  sudodus  list_drives: column count fixed with tr -s
+# 2014-08-02  sudodus  mkusb version 8.4
+# 2014-08-03  sudodus  function init_dialog
+# 2014-08-03  sudodus  function warning_dialog with red background
+# 2014-08-03  sudodus  function normal_dialog
+# 2014-08-03  sudodus  mkusb version 8.5
+# 2014-08-08  sudodus  LANG=C in function mkcmd_runcmd (bugfix)
+# 2014-08-08  sudodus  mkusb version 8.5.1
+# 2014-08-12  sudodus  improved check if the same iso, update iso image
+# 2014-08-13  sudodus  double quote the file name in the command string
+#                      makes file name work with some special characters
+# 2014-08-13  sudodus  function clean_mtab syncs USB partitions in mtab
+# 2014-08-13  sudodus  mkusb version 8.5.2
+
+
+version="mkusb 8.5.2"
+
+ver_no="${version##* }"
+prgnam="${version% *}"
+#echo "$ver_no"
+#echo "$prgnam"
+
+pvplug=
+zenityplug=
+splashed=false
+checked_pack=false
+source=
+selected=
+imagefile=
+curlang="$LANG"
+LC_ALL=C
+#LANG=C
+width=
+ch_item=
+
+#######################################################################
+#######################################################################
+
+function mkusb_usage {
+
+  echo "Usage:  # New: menus to select source file and target device #"
+  echo "---- Make a USB install device from ISO or image file --------"
+  echo "sudo $0"
+  echo "sudo $0 file.iso"
+  echo "sudo $0 \"quote file name (1) with special characters.iso\""
+  echo "sudo $0 file.img"
+  echo "sudo $0 file.img.gz"
+  echo "sudo $0 file.img.xz"
+  echo "---- Install from 'file.img.xz', show all mass storage devices"
+  echo "sudo $0 file.img.xz all"
+  echo "---- Wipe the USB device (may take long time) ----------------"
+  echo "sudo $0 wipe-whole-device"
+  echo "---- Wipe the first megabyte (MibiByte), show only USB devices"
+  echo "sudo $0 wipe-1"
+  echo "---- Wipe the first megabyte, show all mass storage devices --"
+  echo "sudo $0 wipe-1 all"
+  echo "---- Help and Version ----------------------------------------"
+  echo "$0 -h"
+  echo "$0 -v"
+}
+
+#######################################################################
+#######################################################################
+
+function splash {
+
+if ! "$splashed"
+then
+ splashed=true
+
+
+ screensize=$(mktemp)
+
+dialog --print-maxsize 2> "$screensize"
+
+ read dummy lines cols < "$screensize"
+# cat "$screensize"
+ rm "$screensize"
+ lines=${lines/,}
+
+ if [ $cols -ge 80 ] && [ $lines -ge 22 ]
+ then
+dialog --no-shadow --backtitle "$version - splash" \
+--timeout 3 --no-collapse --exit-label "OK" --msgbox \ "
+
+#####        #####  ####   #####  #####   #####     #####     ########    
+ #####      #####    ###   ###     ###     ###    ###   ###    ###   ###  
+ ######    ######    ###  ###      ###     ###   ###    ####   ###    ### 
+ ### ###  ### ###    ### ###       ###     ###   ###           ###   #### 
+ ###  ######  ###    #####         ###     ###    ####         ########   
+ ###   ####   ###    ######        ###     ###      #####      #########  
+ ###    ##    ###    ### ###       ###     ###         ####    ###    ### 
+ ###          ###    ###  ###      ###     ###           ###   ###     ###
+ ###          ###    ###   ###     ###     ###  ####     ###   ###     ###
+ ###          ###    ###    ###     ###   ###    ###   ####    ###    ### 
+#####        #####  #####   #####     #####        ######     #########   
+" \
+ 0 0
+ else
+dialog --backtitle "$version - splash" \
+--timeout 3 --no-collapse --exit-label "OK" --msgbox \ "
+mkusb can create USB boot devices
+from iso, img.xz, img.gz files
+
+current window size=${cols}x${lines}
+recommended size is 80x22 or larger
+" \
+0 0
+ fi
+fi
+}
+
+#######################################################################
+#######################################################################
+
+function mkhelp {
+
+# make help text
+
+# echo "Collecting data for 'Help to select drive'"
+ hlptxt="/tmp/help-mkusb.txt"
+ > "$hlptxt"
+ echo "Put the file name within quotes, if you get the following output:" >> "$hlptxt"
+ echo "bash: syntax error near unexpected token '('" >> "$hlptxt"
+ echo "sudo $0 \"quote file name (1) with special characters.iso\"" >> "$hlptxt"
+ echo "_______________________________________________" >> "$hlptxt"
+ echo " " >> "$hlptxt"
+ echo "Collected data to help select target drive" >> "$hlptxt"
+ echo "_______________________________________________" >> "$hlptxt"
+ echo " " >> "$hlptxt"
+ #echo "lshw -class disk #####" >> "$hlptxt"
+ #lshw -class disk >> "$hlptxt"
+ echo "list_drives     ##### function built into $prgnam" >> "$hlptxt"
+ list_drives >> "$hlptxt"
+ echo "-----------------------------------------------" >> "$hlptxt"
+ echo "df --sync|grep \"/dev/[^f]d\"|sort #####" >> "$hlptxt"
+ df --sync|grep "/dev/[^f]d"|sort >> "$hlptxt"
+ echo "-----------------------------------------------" >> "$hlptxt"
+ echo "ls -l /dev/disk/by-id| grep [a-z]$|tr -s ' ' ' ' \\" >> "$hlptxt"
+ echo "|cut -d ' ' -f 9,11|sort -k2|grep -e \^a -e \^u \\" >> "$hlptxt"
+ echo "|sed 's#../..#/dev#' ##### also empty mass storage devices" >> "$hlptxt"
+ ls -l /dev/disk/by-id| grep [a-z]$|tr -s ' ' ' ' \
+ |cut -d ' ' -f 9,11|sort -k2|grep -e \^a -e \^u \
+ |sed 's#../..#/dev#' >> "$hlptxt"
+ echo "-----------------------------------------------" >> "$hlptxt"
+ echo "lsusb|sort -k 4,4 -k 1 #####" >> "$hlptxt"
+ lsusb|sort -k 4,4 -k 1 >> "$hlptxt"
+ echo "-----------------------------------------------" >> "$hlptxt"
+ echo "fdisk -lu 2>/dev/null|grep \"/dev/[^f]d\"|sort #####" >> "$hlptxt"
+ fdisk -lu 2>/dev/null|grep "/dev/[^f]d"|sort >> "$hlptxt"
+ echo "-----------------------------------------------" >> "$hlptxt"
+ echo "parted -ls #####" >> "$hlptxt"
+ parted -ls  >> "$hlptxt"
+ echo "-----------------------------------------------" >> "$hlptxt"
+ echo "blkid|sort #####" >> "$hlptxt"
+ blkid|sort >> "$hlptxt"
+ echo "-----------------------------------------------" >> "$hlptxt"
+ echo "lsblk -f #####" >> "$hlptxt"
+ lsblk -f >> "$hlptxt"
+ #echo "--------------------------------------------------------------------"
+# echo "This help text is read with  less $hlptxt"
+ #### xterm -geometry 120x40 -title "less $hlptxt" -e less "$hlptxt" &
+
+ btitlh="$version - Help info to select drive"
+ xtitle="Use Arrow PgUp PgDn Home End keys to scroll this help info"
+
+ dialog --backtitle "$btitlh" --title "$xtitle"\
+ --exit-label "OK" \
+ --no-shadow --textbox "$hlptxt" 0 0
+}
+
+#######################################################################
+#######################################################################
+
+function list_drives {
+
+# parameter $1 for usbonly (true/false)
+
+cnt1=0
+cnt2=0
+
+tmpfil=$(mktemp)
+ls -l /dev/disk/by-id| grep [a-z]$|tr -s ' ' ' '|cut -d ' ' -f 9,11 \
+|sort -k2|grep -e \^a -e \^u|sed 's#../..#/dev#' > "$tmpfil"
+
+#cat "$tmpfil"
+
+while read name device
+do
+ cnt1=$(($cnt1 + 1))
+ nam1[$cnt1]="${name%_*}"
+nam1[$cnt1]=${nam1[$cnt1]:0:36}
+ dev1[$cnt1]="$device"
+# /bin/echo -e "${nam1[$cnt1]}\0011${dev1[$cnt1]}"
+done < "$tmpfil"
+
+lsblk -db|grep disk|tr -s ' ' ' '| cut -d ' ' -f1-4 |sort > "$tmpfil"
+
+while read device dum1 dum2 bytesize
+do
+ cnt2=$(($cnt2 + 1))
+ dev2[cnt2]="$device"
+ mbsize=$((($bytesize+500000)/1000000))
+ gbsize=$((($bytesize+500000000)/1000000000))
+ if [ $mbsize -lt 32000 ]
+ then
+  prsize[$cnt2]="${mbsize}MB"
+ else
+  prsize[$cnt2]="${gbsize}GB"
+ fi
+ device[$cnt2]="/dev/$device"
+# echo "${device[$cnt2]}" "${prsize[$cnt2]}"
+done < "$tmpfil"
+
+rm "$tmpfil"
+
+if [ $cnt1 -ge $cnt2 ]
+then
+ count=$cnt1
+else
+ count=$cnt2
+fi
+strsize=0
+for (( i=1; i<=$count ; i++ ))
+do
+ if [ ${#nam1[$i]} -gt $strsize ]
+ then
+  strsize=${#nam1[$i]}
+ fi
+done
+#echo $strsize
+for (( i=1; i<=$count ; i++ ))
+do
+ addsize=$(($strsize - ${#nam1[$i]}))
+ blank='                                                    '
+ spacer=${blank:0:$addsize}
+# echo $addsize
+# echo "xxx${blank:0:$addsize}xxx"
+
+ printsize=
+ for (( j=1; j<=$count ; j++ ))
+ do
+#  echo "${dev1[$i]} ?==?  /dev/${dev2[$j]}"
+  if [ "${dev1[$i]}" ==  "/dev/${dev2[$j]}" ]
+  then
+   printsize="${prsize[$j]}"
+#   echo "printsize=$printsize"
+  fi
+ done
+
+ if [ "$printsize" != "" ]
+ then
+  string="Name: ${nam1[$i]}${spacer}  Dev: ${dev1[$i]}  Size: $printsize"
+  if [ "$1" == "true" ]
+  then
+   usbstring="${string/Name\:\ usb\-/USB: }"
+   if [ "$usbstring" != "$string" ]
+   then
+    /bin/echo -e "$usbstring"
+   fi
+  else
+    /bin/echo -e "$string"
+  fi
+ fi
+done
+}
+
+#######################################################################
+#######################################################################
+
+function check_packages {
+
+# check pipe view and offer installation
+
+if ! "$checked_pack"
+then
+
+ which pv > /dev/null
+ if [ "$?" == "0" ]
+ then
+  pvplug=true
+ else
+  echo "The program 'pv' can show the progress during the installation."
+  read -p "Do you want to install it? (y/N)" pvi
+  if [ "$pvi" == "y" ]
+  then
+   echo "apt-get install pv"
+   apt-get install pv
+  fi
+  which pv > /dev/null
+  if [ "$?" == "0" ]
+  then
+   pvplug=true
+  else
+   pvplug=false
+  fi
+ fi
+# echo $pvplug
+
+# check menu packages and offer installation
+
+ menu_package_installer needs dialog "mkusb version 7.4 works without it"
+ menu_package_installer wants zenity "mkusb can work without it."
+# menu_package_installer wants smartctl "mkusb can work without it." smartmontools
+
+ zenity --info --text="test" --timeout=1 2> /dev/null
+ if [ $? -eq 5 ]
+ then
+ zenityplug=true
+ else
+ zenityplug=false
+ fi
+
+ checked_pack=true
+fi
+}
+
+#######################################################################
+#######################################################################
+
+function menu_package_installer {
+
+# $1 "needs" or "wants"
+# $2 program name
+# $3 informative test string
+# $4 package name (if different from program name)
+
+# Example (shows full syntax but smartctl is *not* used by mkusb)
+# menu_package_installer wants smartctl "mkusb can work without it." smartmontools
+
+
+if [ "$4" == "" ]
+then
+ package="$2"
+else
+ package="$4"
+fi
+which "$2" > /dev/null
+if [ "$?" != "0" ]
+then
+ echo "mkusb $1 the program '$2' for the menus."
+ read -p "Do you want to install it? (y/N)" pvi
+ if [ "$pvi" == "y" ]
+ then
+  echo "Prepare by making the system up to date ..."
+  echo "apt-get update && apt-get upgrade"
+  sleep 2
+  apt-get update && apt-get upgrade
+  echo "Install program $2 ... in package $package"
+  echo "apt-get install --no-install-recommends $package"
+  sleep 2
+  apt-get install --no-install-recommends "$package"
+ fi
+ which "$2" > /dev/null
+ if [ "$?" != "0" ]
+ then
+  echo "$version $1 $2 but it is not installed."
+  echo "$3"
+  if [ "$1" == "needs" ]
+  then
+   exit
+  else
+   read -t 3
+  fi
+ fi
+fi
+}
+
+#######################################################################
+#######################################################################
+
+# --colors
+#    Interpret embedded "\Z" sequences in the dialog text by the following
+# character, which tells dialog to set colors or video attributes:
+# 0 through 7 are the ANSI used in curses:
+#   0     1     2      3      4       5      6         7
+# black, red, green, yellow, blue, magenta, cyan and white respectively.
+#
+# Bold is set by 'b', reset by 'B'.
+# Reverse is set by 'r', reset by 'R'.
+# Underline is #set by 'u', reset by 'U'.
+# The settings are cumulative, e.g., "\Zb\Z1" makes the following text
+# bold (perhaps #bright) red. Restore normal settings with "\Zn". 
+
+########################################################################
+########################################################################
+
+function init_dialog {
+
+# create the file for run-time configuration, with text names for colours
+
+dialog --create-rc $HOME/.dialogrc
+
+# initiate colours
+
+sed -i 's/use_colors.*/use_colors = ON/' $HOME/.dialogrc
+sed -i 's/screen_color =.*/screen_color = (CYAN,BLUE,ON)/' $HOME/.dialogrc
+}
+
+########################################################################
+########################################################################
+
+function warning_dialog {
+
+# set red warning screen background
+
+sed -i 's/screen_color =.*/screen_color = (yellow,red,ON)/' $HOME/.dialogrc
+}
+
+########################################################################
+########################################################################
+
+function normal_dialog {
+
+# set blue normal screen background
+
+sed -i 's/screen_color =.*/screen_color = (CYAN,BLUE,ON)/' $HOME/.dialogrc
+}
+
+########################################################################
+########################################################################
+
+function clean_mtab {
+
+tmp1fil=$(mktemp)
+
+grep /dev/[^f]d /etc/mtab|grep /media/|cut -d ' ' -f2 > "$tmp1fil"
+
+while read tmp1str
+do
+ umount --fake "$tmp1str"
+done < "$tmp1fil"
+}
+
+#######################################################################
+#######################################################################
+
+function select_device {
+
+# version for mkusb (ported from OBI)
+
+# 1 parameter:
+#echo "in select_device \$1=$1"
+
+p1="$1"
+
+# make command and run command, 'here we go'
+
+ans=-1
+choice=1
+target=
+LC_ALL=C
+LANG=C
+tmpstr=
+
+ltest0=$(grep -m 1 " / " /etc/mtab|cut -d ' ' -f 1)
+if [ "$ltest0" == "/cow" ] || [ "$ltest0" == "aufs" ] || [ "$ltest0" == "rootfs" ]
+then
+ ltest1=$(grep ' /isodevice' /etc/mtab|cut -c 5-8)
+ if [ "$ltest1" != "" ]
+ then
+  livedrive=$ltest1
+ else
+  ltest1=$(grep ' /cdrom' /etc/mtab|cut -c 5-8)
+  if [ "$ltest1" != "" ]
+  then
+   livedrive=$ltest1
+  else
+   ltest1=$(grep ' iso9660' /etc/mtab|grep -v ' /media'|grep -v ' /mnt'|cut -c 5-8)
+   if [ "$ltest1" != "" ]
+   then
+    livedrive=$ltest1
+   else
+    livedrive="not_found"
+   fi
+  fi
+ fi
+elif [ "${ltest0/\/dev\/[^f]d}" != "$test0" ]
+then
+ livedrive=$(grep " / " /etc/mtab|cut -c 5-8)
+else
+ livedrive="not_found"
+fi
+ #echo ltest0=$ltest0
+ #echo ltest1=$ltest1
+ #echo livedrive=$livedrive
+
+
+ tmpstr=$(list_drives)
+
+#echo $tmpstr
+#read -p "press enter to continue"
+
+# check if all drives should be available at start (not only USB)
+# usbonly default true, can be changed with parameter2 'all'
+
+if [ "$p1" == "all" ] || [ "$p1" == "anh" ]
+then
+ usbonly=false
+else
+ usbonly=true
+fi
+
+tmpstr="$tmpstr\nBooted from: /dev$livedrive"
+
+while [ "$ans" == "u" ] || [ $ans -lt 0 ]
+do
+
+#echo "usbonly=$usbonly"
+
+ if $usbonly; then ufl=usb; else ufl=d;fi
+
+# usbstr=$(for i in $(find /sys/devices -name "[^f]d?"|grep usb|sed s#.*/##)
+# do
+#  fdisk -lu /dev/$i 2>/dev/null|grep "Disk /dev"
+# done |sed 's/Disk/USB device: /'|sort)
+ 
+ dialog --backtitle "$version - Select device - warning and overview" \
+ --colors --no-collapse --cr-wrap --no-shadow --msgbox \
+"       \Z1WARNING: the device will be completely overwritten\Zn\n
+       Get more help to select device at the Starter menu\n
+---    \Z1Unmount the target device if mounted\Zn   --------------------\n
+$tmpstr\n$usbstr" 0 0
+
+ aind=0
+ bind=0
+ unset adev
+ unset atxt
+ unset bvar
+
+#echo "usbonly=$usbonly"
+#list_drives "$usbonly"|tr -s ' ' ' '|cut -d ' ' -f 4
+#read -p 'Press enter to continue at list_drives'
+sync 
+for j in $(list_drives "$usbonly"|tr -s ' ' ' '|cut -d ' ' -f 4)
+ do
+# echo "j=$j"
+  busy=0
+  for k in $(df --sync 2>/dev/null|grep "$j" |tr -s ' ' '\t'|cut -f1)
+  do umount "$k" 2>/dev/null; if [ "$?" == "1" ];then busy=1;fi ;done
+  tj="$(list_drives $usbonly|grep $j)"
+#  echo "k=$k"
+#  echo "busy=$busy"
+#  echo "${tj:0:7}"
+#  echo "${tj}"
+#  read -p "select-device at Warning and Error"
+  if [ "${tj:1:7}" == "Warning" ] || [ "${tj:1:5}" == "Error" ]
+  then
+    tj=$(fdisk -lu "$j" 2>/dev/null|grep "$j":|sed s/\,\ .*//)
+  fi
+
+  if [ "$j" == "/dev$livedrive" ]
+  then
+   adev[$aind]="q"
+   atxt[$aind]="\Z5\Zb${tj/Name:/Live:}\Zn"
+   aind=$(($aind + 1))
+  elif [ "$busy" == "1" ]
+  then
+   adev[$aind]="q"
+   atxt[$aind]="\Z4\Zb${tj/Name:/Busy:}\Zn"
+   aind=$(($aind + 1))
+  else
+   adev[$aind]="$j"
+   atxt[$aind]="$tj"
+   aind=$(($aind + 1))
+  fi
+ done
+ adev[$aind]="u"
+ if $usbonly
+ then
+  atxt[$aind]="toggle USB-only; show all drives"
+ else
+  atxt[$aind]="toggle USB-only; hide other drives"
+ fi
+ aind=$(($aind + 1))
+ adev[$aind]="q"
+ atxt[$aind]="quit installing"
+ aind=$(($aind + 1))
+ for (( xi=0; xi < $aind ; xi++ ))
+ do
+  if [ "${adev[$xi]}" == "u" ]
+  then
+   bvar[$bind]="u"
+  elif [ "${adev[$xi]}" == "q" ]
+  then
+   bvar[$bind]="q"
+  else
+   bvar[$bind]=$(($xi+1))
+  fi
+  bind=$(($bind + 1))
+  bvar[$bind]="${atxt[$xi]}"
+  bind=$(($bind + 1))
+ done
+
+# select device - the Mkusb button to go
+
+#echo "aind=$aind"
+#echo "${bvar[@]}"
+#read -p 'stop at Go ahead menu'
+
+ ans=$(dialog \
+ --backtitle "$version - Select device - and go ahead" \
+ --title "Please select a device with the arrow keys, scroll if necessary" \
+ --colors --no-shadow --ok-label "Go" --cancel-label "Quit" --no-shadow \
+ --menu "Available devices" \
+ 17 100 $aind "${bvar[@]}"  3>&1 1>&2 2>&3 3>&- )
+
+ echo "ans=$ans"
+
+ if [ "$ans" == "u" ]
+ then
+  choice=1
+  if $usbonly
+  then
+   usbonly=false
+  else
+   usbonly=true
+  fi
+ elif [ "$ans" == "q" ] || [ "$ans" == "" ] || [ $ans -lt 0 ]
+ then
+  exit
+ else
+  choice=$(($ans - 1))
+  target="${adev[$choice]}"
+  cmdsav="${atxt[$choice]}"
+ fi
+# echo "ans=$ans at end of while loop"
+done
+
+# here we go
+
+if [ "$source" == "/dev/zero" ]
+then
+ doing="wiping\n\n"
+else
+ doing="installing\n\nthe operating system \Z4$system\Zn\nto "
+fi
+
+#echo "$system" "$imagefile" "$target"
+#echo "$cmdsav"
+
+cmdsav="${cmdsav/USB\:\ }"
+cmdsav="${cmdsav/Name\:\ usb\-}"
+cmdsav="${cmdsav/Name\:\ ata\-}"
+cmdsav="${cmdsav/Dev\:}"
+cmdsav="${cmdsav/Size\:}"
+cmdsav=$(tr -s ' ' ' ' <<< "$cmdsav")
+cmdsav=$(sed 's/ /  /g' <<< "$cmdsav")
+
+#echo "$cmdsav"
+#read -p 'stop'
+LANG="$curlang"
+
+ warning_dialog
+
+ ans=$(dialog --cr-wrap --no-collapse --defaultno --colors --no-shadow \
+--backtitle "$version - Select device - final WARNING" \
+--yesno "$prgnam is prepared to start ${doing}the target  \Z4$cmdsav\Zn\n\n
+\Z1This is the \Z7 FINAL WARNING \Z1 before wiping and installing !!!\n
+Do you really want to wipe and install to this device?\Zn" 13 "$width" \
+ 3>&1 1>&2 2>&3 3>&- )
+
+ ans="$?"
+ normal_dialog
+
+ if [ "$ans" != "0" ]
+ then
+  clean_mtab
+  exit
+ fi
+
+ swapoff "$target"* 2>/dev/null
+ sync
+
+# echo "ans=$ans at end of select_device"
+
+# echo target="$target"
+# echo "at end of select_device"
+#  exit  #-------------------------------------------  skarpt läge
+}
+
+#######################################################################
+#######################################################################
+
+function mkcmd_runcmd {
+
+# 6 parameters:
+#        mkcmd_runcmd "$1" "$source" "$system" "$cnt" "$doing_this" "$result"
+#echo In mkcmd_runcmd "$1" "$source" "$system" "$cnt" "$doing_this" "$result"
+
+# make command and run command, 'here we go'
+
+ LANG=C
+
+ if [ "$target" == "" ]
+ then
+  echo "No target"
+  exit
+ elif [ "$source" == "" ]
+ then
+  echo "No source"
+  exit
+ else
+  swapoff "$target"* 2>/dev/null
+  sync
+
+# the command line is implemented 
+
+  echo " "
+
+# build target and write 'a first line' to the terminal ...
+
+  if [ "$1" == "wipe-whole-device" ] || [ "$1" == "/dev/zero" ]
+  then
+   doing_this="Wiping the whole device $target ..."
+  elif [ "$1" == "wipe-1" ] || [ "$1" == "wipe1" ]
+  then
+   doing_this="Wiping the first megabyte (MibiByte) of $target ... :"
+  else
+   doing_this="Installing $1 to $target ..."
+  fi
+  echo "$doing_this"
+  echo " "  
+
+# build beginning of command (read the source) and calculate size
+
+#  echo "source=$source"
+  if [ "$source" == "$1" ]
+  then
+
+# double quotes makes source file name work with some special characters
+
+   source=\""$source"\"
+
+   if [ "${1%.iso}" != "$1" ] || [ "${1%.img}" != "$1" ]
+   then
+    size=$(wc -c "$1"|cut -d ' ' -f 1)
+    readsrc="< $source"
+   elif [ "${1%.img.[gx]z}" != "$1" ]
+   then
+    if [ "${1%.img.gz}.img.gz" == "$1" ]
+    then
+     size=$(gzip -l "$1"|grep "${1/.gz}"|tr -s ' ' ' '|sed s/^\ //|cut -d ' ' -f 2)
+     readsrc="zcat $source |"
+    else
+#     size=$(xz -l "$1"|grep "${1/.xz}"|tr -s ' ' ' '|sed s/^\ //|cut -d ' ' -f 5,6| \
+#            sed -e s/\ // -e s/..$//)
+     si10=$(xz -l "$1"|grep "${1/.xz}"|tr -s ' ' ' '|sed s/^\ //| \
+            cut -d ' ' -f 5|sed 's/\.//')
+     sitr=$(((${si10}+5)/10))
+     powr=$(xz -l "$1"|grep "${1/.xz}"|tr -s ' ' ' '|sed s/^\ //| \
+            cut -d ' ' -f 6|sed -e s/..$//)
+     size=$sitr$powr
+     readsrc="xzcat $source |"
+    fi
+   fi
+   size="-s ${size,,}"
+  else
+   readsrc="< $source"
+   size=
+  fi
+
+# build pvpipe (if available)
+
+  if $pvplug
+  then
+   pvpipe="pv $size |"
+  else
+   pvpipe=
+  fi
+
+#  echo "\$1=$1"
+#  echo "source=$source"
+#  echo "target=$target"
+#  echo "bs=$bs"
+#  echo "cnt=$cnt"
+#  echo "pvplug=$pvplug"
+#  echo "size=$size"
+#  echo "pvpipe=$pvpipe"
+#  echo "readsrc=$readsrc"
+
+  cmdfile=$(mktemp)
+
+  cmdline="$readsrc $pvpipe dd bs=$bs $cnt of=$target"
+
+  echo "$cmdline"|tee $cmdfile
+  bash $cmdfile
+  if [ $? -eq 0 ]
+  then
+   result="Done :-)"
+  else
+   result="Failed :-("
+  fi
+  echo "Syncing the device ..."
+  rm $cmdfile
+  sync
+  echo "$result"
+ fi
+
+ LANG="$curlang"
+}
+
+#######################################################################
+#######################################################################
+
+function usage_prep_final {
+
+#echo "usage_prep_final"
+#echo "\$1=$1"
+#echo "\$#=$#"
+
+bs=4096
+count=256
+cnt=
+target=
+source="$1"
+inversvid="\0033[7m"
+resetvid="\0033[0m"
+
+system="${1%.*}"
+if [ "${system/img}" != "$system" ]
+then
+ system="${system%.*}"
+fi
+#echo "$system"
+
+# print version and usage on demand
+
+if [ "$1" == "-v" ]
+then
+ echo "$version"
+ exit
+elif [ "$1" == "-h" ]
+then
+ mkusb_usage $*
+ exit
+fi 
+
+# usage text
+
+if [ "$(whoami)" != "root" ] || \
+  ( [ $# -ne 1 ] && ( [ "$2" != "all" ] && [ "$2" != "anh" ] || [ $# -ne 2 ] ) )
+then
+ if [ $# -ne 1 ] && ( [ "$2" != "all" ] && [ "$2" != "anh" ] || [ $# -ne 2 ] )
+ then
+  mkusb_usage $*
+ else
+  echo "Usage:"
+  echo "sudo $0 $1 $2"
+ fi
+ exit
+fi
+
+# check usage mode and input file extension
+
+if   [ "${1/.iso}.iso" != "$1" ] && \
+     [ "${1/.img}.img" != "$1" ] && \
+     [ "${1/.img.gz}.img.gz" != "$1" ] && \
+     [ "${1/.img.xz}.img.xz" != "$1" ]
+then
+ if [ "$1" == "wipe-whole-device" ] || [ "$1" == "/dev/zero" ]
+ then
+  echo "Wipe the whole device ... :"
+  source="/dev/zero"
+ elif [ "$1" == "wipe-1" ] || [ "$1" == "wipe1" ]
+ then
+  echo "Wipe the first megabyte (MibiByte) ... :"
+  source="/dev/zero"
+  cnt="count=$count"
+ else
+  echo ":-( $1 is neither an iso file, img file nor an img.{gz,xz} file :-("
+  exit
+ fi
+elif [ ! -f "$source" ]
+then
+ echo ":-( $source is not found :-("
+# double quotes makes source file name work with some special characters
+ echo "Try quotes around the file name"
+ echo "sudo path/mkusb \"$source\""
+ exit
+fi
+
+# check  program packages and offer installation
+
+check_packages
+
+# show a splash screen or a mini screen if too small window
+
+splash
+
+# prepare for questions using dialog
+
+btitle=
+xtitle="***  WARNING: the device will be completely overwritten  ***"
+question=
+
+if [ ${#1} -lt 70 ]
+then
+ width=80
+else
+ width=$(( ${#1} +10 ))
+fi
+
+#echo "width=$width"
+
+############################################################## same iso
+
+# check if updating 'the same' iso image
+
+############################################################## same iso
+
+#if [ "$source" != "/dev/zero" ]
+if [ "${1/.iso}.iso" == "$1" ]
+then
+ iso=$(mktemp -d)
+ #echo "$iso"
+ #echo "$source"
+ 
+ echo "The iso file SHOULD BE loop mounted on a temporary file READ-ONLY:"
+ sleep 1
+ umount "$iso" >/dev/null 2>&1
+ mount -o loop -t auto "$source" "$iso"
+ 
+ diskname=""
+
+ tmpstr=$(grep -i -e ^default -e label "$iso"/{*,*/*,*/*/*}.cfg 2>/dev/null \
+ |sed -e s/.*cfg://|head -n2| tr '\n' '|')
+ if [ "$tmpstr" != "" ]
+ then
+  diskname="label"
+  string1="$tmpstr"
+ fi
+ tmpstr=$(grep -i -e title "$iso"/{*,*/*,*/*/*}.cfg 2>/dev/null|sed -e s/.*cfg://|head -n1)
+ if [ "$tmpstr" != "" ]
+ then
+  diskname="title"
+  string1="$tmpstr"
+ fi
+ tmpstr=$(grep -i version "$iso"/{*,*/*,*/*/*}.cfg 2>/dev/null|sed -e s/.*cfg://|head -n1)
+ if [ "$tmpstr" != "" ]
+ then
+  diskname="version"
+  string1="$tmpstr"
+ fi
+ tmpstr=$(grep -i -e Architectures -e Origin -e suite -e version \
+ "$iso"/dists/*/Release 2>/dev/null|head -n4|sed 's/.*: *//'| tr '\n' ' ')
+ if [ "$tmpstr" != "" ]
+ then
+  diskname="debian"
+  string1="$tmpstr"
+ fi
+ tmpstr=$(grep 'This is an installation system for Ubuntu' \
+  "$iso"/f1.txt 2>/dev/null|sed -e s/.*Ubuntu/Ubuntu/)
+ if [ "$tmpstr" != "" ]
+ then
+  diskname="mini"
+  string1="$tmpstr"
+ fi
+ tmpstr=$(grep DISKNAME "$iso"/README.diskdefines 2>/dev/null|sed -e s/.*DISKNAME\ *//)
+ if [ "$tmpstr" != "" ]
+ then
+  diskname="desktop"
+  string1="$tmpstr"
+ fi
+
+ echo "diskname=$diskname"
+# echo "string1=$string1"
+
+ if [ "$string1" != "" ]
+ then
+  echo "$string1 _found_ in iso-file"
+  question="$string1\n\nfound in the iso-file"
+ else
+  echo "No diskname string found in iso-file"
+  question="No diskname string found in the iso-file"
+ fi
+ sleep 1
+ umount "$iso"
+ sync
+
+ LANG=C
+ umount /dev/sd?? 2>&1 |grep 'device is busy'
+ LANG="$curlang"
+ sync
+
+ for i in /dev/sd?
+ do
+  mount -t auto "$i" "$iso"  >/dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+   if [ "$diskname" == "label" ]
+   then
+    string2=$(grep -i -e ^default -e label "$iso"/{*,*/*,*/*/*}.cfg 2>/dev/null \
+    |sed -e s/.*cfg://|head -n2| tr '\n' '|')
+   elif [ "$diskname" == "title" ]
+   then
+    string2=$(grep -i -e title "$iso"/{*,*/*,*/*/*}.cfg 2>/dev/null|sed -e s/.*cfg://|head -n1)
+   elif [ "$diskname" == "version" ]
+   then
+    string2=$(grep -i version "$iso"/{*,*/*,*/*/*}.cfg 2>/dev/null|sed -e s/.*cfg://|head -n1)
+   elif [ "$diskname" == "debian" ]
+   then
+    string2=$(grep -i -e Architectures -e Origin -e suite -e version \
+    "$iso"/dists/*/Release 2>/dev/null|head -n4|sed 's/.*: *//'| tr '\n' ' ')
+   elif [ "$diskname" == "mini" ]
+   then
+    string2=$(grep 'This is an installation system for Ubuntu' \
+    "$iso"/f1.txt 2>/dev/null|sed -e s/.*Ubuntu/Ubuntu/)
+   elif [ "$diskname" == "desktop" ]
+   then
+    string2=$(grep DISKNAME "$iso"/README.diskdefines 2>/dev/null|sed -e s/.*DISKNAME\ *//)
+   fi
+   sleep 0.5
+   umount "$iso"
+   sync
+  else
+   string2="not_$iso"
+  fi
+  if [ "$string2" == "$string1" ]
+  then
+   echo "$string2 _found_ in $i"
+   question="$question and found in $i"
+   target="$i"
+  fi
+ done
+ sync
+ umount "$iso" >/dev/null 2>&1
+ rmdir "$iso"
+ sync
+
+ # echo "target: $target"
+ # exit
+fi
+
+# update iso image
+
+if [ "$target" != "" ]
+then
+
+# echo "target=$target"
+
+ tgd=$(list_drives|grep "$target")
+ warning_dialog
+ question="$question\n\Z4$tgd\Zn\n\nInstall to \Z1${target}\Zn ?"
+ btitle="$version - update iso image (from new iso file)"
+
+ ans=$(dialog --backtitle "$btitle" --colors --defaultno --no-shadow \
+ --title "$xtitle" --yesno "\n$question" 12 100  3>&1 1>&2 2>&3 3>&- )
+
+ ans="$?"
+ normal_dialog
+ if [ "$ans" == "0" ]
+ then
+  busy=0
+  for k in $(df --sync 2>/dev/null|grep "$target" |tr -s ' ' '\t'|cut -f1)
+   do umount "$k"; if [ "$?" == "1" ];then busy=1;fi; done
+#   echo "busy=$busy"
+#   echo "k=$k"
+  if [ "$busy" == "1" ]
+  then
+   echo "Could not unmount $target because file system on device is busy :-("
+   question="Could not unmount $target because file system on device is busy :-("
+   ans=$(dialog --backtitle "$btitle" --colors --title "$xtitle" --no-shadow \
+   --msgbox "\n$question" 10 100  3>&1 1>&2 2>&3 3>&- )
+   clean_mtab
+   exit
+  else
+   clean_mtab
+   if $pvplug
+   then
+    echo "pv $source| dd of=$target bs=$bs ..."
+    pv "$source"| dd of="$target" bs=$bs
+    echo "syncing the drive ..."
+   else
+    echo "dd if=$source of=$target bs=$bs ..."
+    dd if="$source" of="$target" bs=$bs
+   fi
+   xtitle=
+   echo "The $string1 USB device is re-cloned  :-)"
+   question="The  \Z4$string1\Zn  USB device is re-cloned  :-)\n\n\Z4$tgd\Zn"
+   ans=$(dialog --backtitle "$btitle" --colors --title "$xtitle" \
+   --no-shadow --msgbox "\n$question" 10 100  3>&1 1>&2 2>&3 3>&- )
+  fi
+ fi 
+else
+
+# other alternatives: wipe or clone an iso, img.gz, img.xz file
+
+ if [ "$source" == "/dev/zero" ]
+ then
+  btitle="$version - wipe a mass storage device"
+  question="Do you want to wipe a mass storage device (typically USB drive)?"
+ elif [ "${1/.iso}.iso" == "$1" ]
+ then
+  btitle="$version - install iso file"
+  if [ "$string1" != "" ]
+  then
+   echo "$string1 _not_ in USB device"
+   question="$question but \Z4not\Zn in a USB device"
+  fi
+  question="$question \n\Z4$1\Zn\nDo you want to make a new boot drive?"
+ elif [ "${1/.img}.img" == "$1" ]
+ then
+  btitle="$version - install (uncompressed) image file"
+question="Do you want to clone the (uncompressed) image file\n
+\Z4$1\Zn\nto a mass storage device (typically USB drive)?"
+ elif [ "${1/.img.gz}.img.gz" == "$1" ] || [ "${1/.img.xz}.img.xz" == "$1" ]
+ then
+  btitle="$version - install compressed image file"
+question="Do you want to clone the compressed image file\n
+\Z4$1\Zn\nto a mass storage device (typically USB drive)?"
+ else
+  echo "Bad choice -- exit"
+  exit
+ fi
+
+# echo "$width"
+ ans=$(dialog --colors --backtitle "$btitle" --title "$xtitle" \
+ --no-shadow --yesno "\n$question" 12 "$width" 3>&1 1>&2 2>&3 3>&- )
+ if [ "$?" == "0" ]
+ then
+
+# write help text (not here, only from starter menu)
+
+#  if [ "$2" != "anh" ]
+#  then
+#   mkhelp
+#  fi
+
+# select target drive, make command and run command
+
+#  echo select_device "$2"
+  select_device "$2"
+#  echo mkcmd_runcmd "$1" "$source" "$system" "$cnt" "$doing_this" "$result"
+  mkcmd_runcmd "$1" "$source" "$system" "$cnt" "$doing_this" "$result"
+
+# final screen
+
+wtmp=$(($width + 20))
+
+  if [ "${result:0:4}" == "Done" ] || true
+  then
+   xtitle=
+   tgd=$(list_drives|grep "$target")
+   final="${question/Do you want/You wanted}"
+   final="${final/\?/\n}"
+   final="$final\n... "$doing_this"\n... $result\n\n
+The target device is unmounted and can be unplugged.\n\Z4$tgd\Zn"
+   if [ "$source" == "/dev/zero" ]
+    then
+     final="$final\n
+You may need to \Z1unplug & replug the drive or reboot\Zn \n
+for the kernel to see that the drive is wiped."
+     fi
+   ans=$(dialog --colors --backtitle "$btitle" --title "$xtitle" \
+   --msgbox "$final" 16 "$wtmp" 3>&1 1>&2 2>&3 3>&- )
+  fi
+ fi
+fi
+clean_mtab
+}
+
+#######################################################################
+#######################################################################
+
+function menu_shell {
+
+# check program packages and offer installation
+
+check_packages
+
+# show a splash screen or a mini screen if too small window
+
+splash
+
+hlptxt="/tmp/help-mkusb.txt"
+selected="selected"
+ans="-1"
+defitem="s"
+
+#echo "$version"
+
+dialog --colors --no-shadow \
+--backtitle "$version - Welcome and Warning" --msgbox \
+"Welcome  to                 M K U S B  $ver_no\n
+\n
+WARNING  Copy the data you want to keep to another device, for\n
+WARNING  example an external hard disk drive or a cloud service!\n
+WARNING\n
+WARNING  \Z1When you run this installer, a new operating system will\Zn\n
+WARNING  \Z1be installed, so the device will be formatted and\Zn\n
+WARNING\n
+WARNING  \Z1**********       COMPLETELY OVERWRITTEN       *********\Zn\\n
+WARNING\n
+WARNING  There will be no easy way to recover any previous data.\n
+WARNING  Expensive intelligence services might restore some data." \
+0 0
+#18 70
+#0 0
+#read -sn1
+
+while [ "$ans" != "q" ]
+do
+ if test -s "$selected"
+ then
+  read imagefile < "$selected"
+  if test -f "$imagefile"
+  then
+   menutitle="Selected: $imagefile"
+   defitem="i"
+   inst_tkn="i"
+   inst_str="Install \Z1find target drive and copy, flash, clone ...\Zn"
+  else
+   imagefile=
+   menutitle="No image file selected"
+   defitem="s"
+   inst_tkn="b"
+   inst_str="------------------------------------------------"
+  fi
+ else
+  imagefile=
+  menutitle="No image file selected"
+  defitem="s"
+  inst_tkn="b"
+  inst_str="------------------------------------------------"
+ fi
+
+#echo "in menu_shell: imagefile=$imagefile"
+#read -p "press enter to continue"
+
+ans=$(dialog --no-shadow --backtitle "$version - Starter Menu" \
+--title "Please select an action with a letter key or the arrow keys" \
+--default-item "$defitem" --colors --cancel-label Quit --menu "$menutitle" 0 0 5 \
+s " Select source - iso, img, img.gz or img.xz file" \
+$inst_tkn "$inst_str" \
+w " Wipe the first megabyte (mibibyte)" \
+h " Help to select drive - advanced help text" \
+q " Quit \Z1from mkusb\Zn" \
+  3>&1 1>&2 2>&3 3>&- )
+
+# read -n 1 -s ans
+ if [ "$ans" == "s" ]
+ then
+  select_source
+ elif [ "$ans" == "i" ]
+ then
+  echo "imagefile=$imagefile"
+  usage_prep_final "$imagefile"
+ elif [ "$ans" == "d" ]
+ then
+  dl_img
+ elif [ "$ans" == "w" ]
+ then
+  usage_prep_final "wipe-1"
+ elif [ "$ans" == "" ]
+ then
+  ans="q"
+ elif [ "$ans" == "h" ]
+ then
+  mkhelp
+ fi
+done
+}
+
+#######################################################################
+#######################################################################
+
+function special_file_select {
+
+item=0
+seltxt=
+defitem="a"
+inputdir="/tmp/searchdir-mkusb.txt"
+inputfiles="/tmp/inputfiles-mkusb.txt"
+
+# select source file
+
+if test -s "$inputdir"
+then
+ searchdir=$(cat "$inputdir")
+ if [ "$searchdir" == "" ]
+ then
+  searchdir="./"
+ fi
+elif test -s "$selected"
+then
+ searchdir=$(cat "$selected")
+ searchdir="${searchdir%/*}/"
+# echo "selected=$selected"
+# echo "searchdir=$searchdir"
+# read -p "stop in special_file_select"
+fi
+if [ "$searchdir" == "" ]
+then
+ searchdir="./"
+fi
+
+# zenity directory selector if graphical user interface
+
+if $zenityplug
+then
+
+ans=$(zenity --file-selection --title "$version - Enter directory where to search for source files" \
+--directory --filename="$searchdir")
+else
+ans=$(dialog --no-shadow --backtitle \
+'space-bar: copy selection to text-entry window, slash: show directory content' \
+--no-shadow --title "Enter directory where to search for source files" \
+--dselect "$searchdir" 7 160  3>&1 1>&2 2>&3 3>&- )
+fi
+
+#echo "XXX${ans}XXX after call of file-selector (zenity or dialog)"
+
+if [ "$ans" == "" ]
+then
+ ans="$searchdir"
+fi
+
+# test if bad directory path (non-standard characters)
+
+find -L "$ans" -type f > /dev/null
+if [ $? -ne 0 ]
+then
+ echo "find fails because of non-standard character in path"
+ echo "$ans"
+ echo "fixing helplink to access the path anyway"
+ helpdir=$(mktemp -d)
+ ln -s "$ans" "$helpdir/helplink"
+ searchdir="$helpdir"
+ lpar="-L"
+else
+ searchdir="$ans"
+ lpar="$1"
+fi
+if [ "${searchdir/helplink}" != "$searchdir" ]
+then
+ lpar="-L"
+fi
+
+if [ "$lpar" == "-L" ]
+then
+ lstr="Linked files are shown."
+else
+ lstr="No linked files are shown."
+fi
+
+#echo "$ans"
+#echo "searchdir=$searchdir"
+echo "$searchdir" > "$inputdir"
+#ls -l "$searchdir"
+#read searchdir < "$inputdir"
+#echo "XXX${1}XXX"
+
+tmpfil=$(mktemp)
+find "$lpar" "$searchdir" -type f -name "*.img.[gx]z" | tee "$tmpfil"
+find "$lpar" "$searchdir" -type f -name "*.img"       | tee -a "$tmpfil"
+find "$lpar" "$searchdir" -type f -name "*.iso"       | tee -a "$tmpfil"
+sort "$tmpfil" > "$inputfiles"
+ans="a"
+while [ "$ans" == "a" ] || [ "$ans" == "s" ] || [ "$ans" == "m" ]
+do
+ item=0
+ seltxt=
+
+ while read line
+ do
+  if [ "$defitem" == "a" ] || \
+   ( [ "$defitem" == "s" ] && [ "${line%.iso}" != "$line" ] ) || \
+   ( [ "$defitem" == "m" ] && ( [ "${line%.img}" != "$line" ] || \
+  [ "${line%.img.gz}" != "$line" ] || [ "${line%.img.xz}" != "$line" ] ))
+  then
+   item=$(($item + 1))
+   seltxt="$seltxt$item \"$line\" "
+  fi
+ done < "$inputfiles"
+
+ if [ "$defitem" == "a" ]
+ then
+  defstr="all source"
+ elif [ "$defitem" == "s" ]
+ then
+  defstr="only ISO"
+ elif [ "$defitem" == "m" ]
+ then
+  defstr="only image"
+ else
+  echo "error: bad defitem=$defitem"
+  exit
+ fi
+
+#echo $seltxt
+#echo "*****ans=$ans*****"
+
+ans=$(dialog --backtitle "$version - special file selector" \
+--title "Please select a file with the arrow keys, scroll if necessary" \
+--default-item $defitem --colors --no-shadow \
+--menu "Available ISO files and [compressed] IMG files. $lstr" \
+16 160 $(($item + 4)) \
+c "change selection from $defstr files" \
+$seltxt q "Quit, no source file selected" 3>&1 1>&2 2>&3 3>&- )
+
+#echo $seltxt
+#echo "*****ans=$ans*****"
+ choice="$ans"
+
+ item=0
+ if [ "$ans" == "c" ]
+ then
+  ch_display
+  defitem="$ch_item"
+ fi
+
+#echo "defitem=$defitem before second while read line"
+ while read line
+ do
+  if [ "$defitem" == "a" ] || \
+   ( [ "$defitem" == "s" ] && [ "${line%.iso}" != "$line" ] ) || \
+   ( [ "$defitem" == "m" ] && ( [ "${line%.img}" != "$line" ] || \
+  [ "${line%.img.gz}" != "$line" ] || [ "${line%.img.xz}" != "$line" ] ))
+  then
+   item=$(($item + 1))
+#   echo item="$item"
+#   echo choice=$choice
+   if [ "$item" == "$choice" ]
+   then
+    imagefile="$line"
+#    echo "imagefile=$imagefile in the loop"
+    read -p 'press Enter to continue'
+   fi
+  fi
+ done < "$inputfiles"
+done
+
+# write selection or blank
+
+#echo "imagefile=$imagefile in 'special_file_select'"
+#read -p 'press Enter to continue'
+
+if [ "$ans" == "q" ] || [ "$ans" == "" ]
+then
+ imagefile=""
+fi
+}
+
+#######################################################################
+#######################################################################
+
+function general_file_select {
+
+#echo $imagefile
+if test -f "$imagefile"
+then
+ choice="$imagefile"	
+else
+ choice="$PWD/"
+fi
+
+if $zenityplug
+then
+ans=$(zenity --file-selection --title "$version - Select source file" \
+--filename="$choice" --file-filter=*.{i[sm][og]*,iso,img,img.?z} )
+#--filename="$choice" --file-filter=*.{iso,img,img.?z} )
+else
+ans=$(dialog --backtitle \
+'space-bar: copy selection to text-entry box, slash: show directory content' \
+--no-shadow --fselect "$choice" 7 200  3>&1 1>&2 2>&3 3>&- )
+fi
+
+imagefile="$ans"
+
+# write selection or blank
+
+#echo "imagefile=$imagefile in 'general_file_select'"
+#read -p 'press Enter to continue'
+}
+
+#######################################################################
+#######################################################################
+
+function select_source {
+
+LANG="$curlang"
+
+ menutitle=\
+"Find and select among iso and image files, or with a general selector."
+
+if $zenityplug
+then
+ level="normal, file type filter"
+ menutitle="$menutitle\n\n
+\Z1Increase the size of the terminal window, particularly the width!\Zn\n
+Then the menus to 'select file' work better to show long file names.\n\n
+\Z1Avoid spaces and special characters in directory and file names!\Zn"
+else
+ level="difficult"
+ menutitle="$menutitle\n
+\Z1Avoid spaces and special characters in directory and file names!\Zn\n
+Use a high resolution screen, if possible more than 80 characters wide!\n
+Then the menus to 'select file' work better to show long file names.\n\n
+\Z1Type text in the bottom text box!\Zn Use the upper text box(es) only to\n
+paste text into the bottom window (with the space key). The slash key\n
+can be used to 'finish' moving to another directory."
+fi
+
+#while [ "$ans" != "q" ] && [ "$ans" != "" ]
+#do
+
+ans=$(dialog --no-shadow --backtitle "$version - Select source file" \
+--colors --cancel-label Quit \
+--title "Please select an action with a letter key or the arrow keys" \
+--menu "$menutitle" 18 80 4 \
+s "iso and image file selector (easy), no search for linked files" \
+l "iso and image file selector (easy), include Linked files (may fail)" \
+g "General File selector ($level)" \
+q " Quit" \
+  3>&1 1>&2 2>&3 3>&- )
+
+ if [ "$ans" == "s" ]
+ then
+  special_file_select
+ elif [ "$ans" == "l" ]
+ then
+  special_file_select "-L"
+ elif [ "$ans" == "g" ]
+ then
+  general_file_select
+ fi
+#done
+
+test -f "$imagefile"
+if [ $? -ne 0 ]
+then
+ imagefile=""
+fi
+
+# write selection
+
+#echo "imagefile=$imagefile in 'select_source'"
+#read -p 'press Enter to continue'
+
+echo "$imagefile" > "$selected"
+
+echo "select_source: imagefile=$imagefile"
+
+ans=""
+#LANG=C
+}
+
+#######################################################################
+#######################################################################
+
+function ch_display {
+
+menutitle=\
+"Among files in the previously selected directory tree,\n
+select file type to display\n"
+
+ans=$(dialog --no-shadow --backtitle "$version - Select file type to display" \
+--colors --cancel-label Quit --default-item "$1" \
+--title "Please select an action with a letter key or the arrow keys" \
+--menu "$menutitle" 18 80 4 \
+a "all files suitable as source files" \
+s "only ISO files" \
+m "only image files (with and without compression)" \
+q " Quit" \
+  3>&1 1>&2 2>&3 3>&- )
+
+ if [ "$ans" == "a" ] || [ "$ans" == "s" ] || [ "$ans" == "m" ]
+ then
+  ch_item="$ans"
+ fi
+}
+
+#######################################################################
+#######################################################################
+#
+# mkusb main program
+#
+#######################################################################
+#######################################################################
+
+#echo "\$1=$1"
+#echo "\$#=$#"
+
+if [ "$(whoami)" == "root" ] && [ $# -eq 0 ]
+then
+ init_dialog
+ menu_shell
+else
+ init_dialog
+ usage_prep_final "$1" $2 $3
+fi
+

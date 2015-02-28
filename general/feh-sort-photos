@@ -1,0 +1,12 @@
+#!/bin/bash
+
+feh --scale-down --draw-tinted --caption-path ./\
+        --action1 "echo '%f' '%n'"\
+        $HOME/Pictures/Photos/RAW
+
+#feh --scale-down --draw-tinted --caption-path ./\
+#        --action1 "echo rm '%f' >> $HOME/PhotosTodo"\
+#        --action2 "echo mv '%f' $HOME/Pictures/Photos/PRINT/'%n' >> $HOME/PhotosTodo"\
+#        --action3 "echo mv '%f' $HOME/School/Photos/'%n' >> $HOME/PhotosTodo"\
+#        --action4 "echo mv '%f' $HOME/Games/PhotoKifu/'%n' >> $HOME/PhotosTodo"\
+#        $HOME/Pictures/Photos/RAW

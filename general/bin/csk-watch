@@ -1,0 +1,5 @@
+#!/bin/bash
+
+csk running?
+echo -e "\n"
+csk-today

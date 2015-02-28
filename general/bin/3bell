@@ -1,0 +1,13 @@
+#!/bin/bash
+sleep 5
+echo "Centering"
+mpg123 $HOME/bin/templebell.mp3 > /dev/null
+sleep 60
+echo "Breathing"
+mpg123 $HOME/bin/templebell.mp3 > /dev/null
+sleep 60
+echo "Expanding"
+mpg123 $HOME/bin/templebell.mp3 > /dev/null
+sleep 60
+echo "End"
+mpg123 $HOME/bin/templebell.mp3 > /dev/null

@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Swap escape and caps-lock
+# Use l-alt+r-shift to change layouts
+# us(alt-intl) and us(rus) layouts
+# 	us(alt-intl) has most euro-lang stuff
+#	us(rus) has phonetic cyrillic
+
+setxkbmap -rules evdev -model evdev -layout us,us -option grp:alt_shift_toggle -option caps:swapescape -option terminate:ctrl_alt_bksp -variant altgr-intl,rus
+
+# modify /usr/share/X11/xkb/symbols/us to have:
+
+# partial alphanumeric_keys
+# xkb_symbols "rus" {
+# 
+#     name[Group1]= "Russian (US, phonetic)";
+# 
+#     include "us(basic)"
+# 
+# key.type[group1]="FOUR_LEVEL_ALPHABETIC";
+# 
+#     key <LatA> {        [ Cyrillic_a, Cyrillic_A ]      };
+#     key <LatB> {        [ Cyrillic_be, Cyrillic_BE ]    };
+#     key <LatW> {        [ Cyrillic_ve, Cyrillic_VE ]    };
+#     key <LatG> {        [ Cyrillic_ghe, Cyrillic_GHE ]  };
+#     key <LatD> {        [ Cyrillic_de, Cyrillic_DE ]    };
+#     key <LatE> {        [ Cyrillic_ie, Cyrillic_IE ]    };
+# // changed grave to U0301
+#     key <TLDE> {        [ Cyrillic_io, Cyrillic_IO, U0301, asciitilde ] };
+#  

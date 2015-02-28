@@ -1,0 +1,9 @@
+#!/bin/bash
+
+#you can create a fifo
+ESPEAK_FIFO=/tmp/espeak_fifo
+mkfifo $ESPEAK_FIFO
+
+# start espeak in the background
+espeak -f $ESPEAK_FIFO &
+

@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ $GREENSCREEN == 'on' ]
+then
+	export GREENSCREEN='off'
+	echo "Off!"
+	xcalib -clear
+else
+	export GREENSCREEN='on'
+	echo "On!"
+	xcalib -red .1 0 1 -alter
+	xcalib -blue .1 0 1 -alter
+	xcalib -invert -alter
+fi
+

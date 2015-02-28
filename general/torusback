@@ -1,0 +1,4 @@
+#!/bin/bash
+
+
+/usr/lib/xscreensaver/hypertorus -window-id $(xwininfo -name Desktop | grep 'Window id' | cut -f4 -d\ ) -delay 10000000

@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+
+# A very simple script for producing rows for a TiddlyWiki spreadsheet of the form:
+# [date] [entry] [entry] [entry]
+
+
+# tiddle arg_1 arg_2 ... arg_n
+# will prompt the user to give a value arg_1, and then arg_2, and then arg_3.
+# Tiddle will return [date] [value_1] [value_2] ... [value_n]
+
+
+$date1 = `date +%m/%d`; # how to label a date in the table
+$date2 = `date +%Y%-m%-d\\ %B\\ %-d\\ %Y` ; # where to link a date in the table
+chomp $date1;
+chomp $date2;
+
+@row[0] = "[[" . $date1 . "|" . $date2 . "]]";
+
+for $arg (@ARGV) {
+	push @row, &ans($arg);
+}
+
+sub ans {
+	my $question = $_[0];
+	my $answer;
+	my $correct;
+	
+	print "Please enter a value for $question:\n";
+	$answer = <STDIN>;
+	chomp $answer;
+	
+	print "You entered $answer. Is this correct? (y/n)";
+	$correct = <STDIN>;
+	chomp $correct;
+	
+	if (($correct eq 'y') or ($correct eq '')) {
+		return $answer;
+	} else {
+		&ans($question);
+	}
+}
+
+print '|' . join('|',@row) . "|\n";

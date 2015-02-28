@@ -1,0 +1,205 @@
+#!/usr/bin/perl 
+#=======================================================================
+#         FILE:  csk.pl
+#
+#  DESCRIPTION: Comma Seperated Kapow! A CLI based punch clock
+#				
+#				csk manages a very primitive punch clock system.
+#				It can manage multiple projects, which of chronologically ordered tasks.
+#
+#				csk start proj [text]
+# 					-- Starts a new task in the project `proj' and appends a comment `text'
+#				csk stop proj [text]	
+# 					-- Stops a task in the project `proj' and appends a comment `text'
+#				csk running?
+#					-- Lists all currently running tasks
+#						Does so by looking at each project, printing its location, 
+#						then all the open tasks in it.
+#
+#				Projects are kept in $ProjDirectory, each plain text file in that directory
+#				contains a seperate project and is formatted as:
+#							{task number},{running = 1, stopped = 0},{time},{comment} \n
+#				
+#				Example:
+# 				 42,1,1313038400,hello
+# 				 42,0,1313038412,bye
+#				
+#				Task #42 was opened at Thu Aug 11 00:53:20 2011 and closed a few seconds later.
+#
+# REQUIREMENTS:  The way last lines are read is not very portable, it uses `tail -n 1 file`.
+#=========================================
+my $ProjDirectory = "/home/pgadey/csk/";
+
+# Help will be documented in the help hash.
+my %help = (
+		start => 'starts a task',
+		stop => 'stops a task',
+		help => 'displays help',
+		'running?' => 'display currently running tasks',
+	);
+
+my ($act, $proj) = ($ARGV[0], $ARGV[1]);
+
+	if (not $act) { 
+		
+		# Complains that there is no action.
+		die 'No action; try using: '. join(', ', keys %help) . ".\n";
+
+	} elsif ($act eq 'help') { 
+	
+		# prints some helpful stuff
+		print "CSK accepts the following options: csk [action] [task] [description] \n";		
+		foreach my $key (keys %help) {
+			print "$key \n", "\t",  $help{$key}, "\n\n";
+		}
+
+	} elsif ($act eq 'start') { 
+	
+		# Starts a new task in an existing project.
+		if (&projExists($proj)) {
+	
+			### NOTE: Using tail here is not portable.
+			my $lastline = `tail -n 1 $ProjDirectory$proj`;
+			chomp $lastline;
+
+				### Last line should be of the form '{task number},{0 or 1},{time},{text}' 
+				if ($lastline =~ /^\d+,[0,1],\d+,\w*/) {
+					# print "`$lastline' is correctly formatted.\n";
+				
+					my ($task, $open, $time, $text) = split(',', $lastline, 4);
+					if ($open eq '1') {
+						# last session is still going	
+
+							print "Task #$task" , ($text ? ": '$text'" : ""), " has been running since: " . localtime($time) . "\n";
+							print "Please stop it to start a new task.\n";
+
+					} else {
+						# last session is over
+						
+						# every argument after "csk start proj" is considered text
+						my $msg = join(' ', splice(@ARGV, 2));
+						
+						# write the task entry
+						open PROJ, ">>", "$ProjDirectory$proj" or die $!;
+							print PROJ join(',', $task+1, '1', time(), $msg) . "\n";
+						close(PROJ);
+						
+						print 'Task #' . ($task + 1) . ' started at ' . localtime() . "\n";		
+					}
+				}
+			}
+
+	} elsif ($act eq 'stop') {
+
+		# Stops an existing task in an existing project.
+		if (&projExists($proj)){
+			
+			### NOTE: Using tail here is not portable.
+			my $lastline = `tail -n 1 $ProjDirectory$proj`;
+			chomp $lastline;
+
+			if ($lastline =~ /^\d+,[0,1],\d+,\w*/) {
+					my ($task, $open, $time, $text) = split(',', $lastline, 4);
+					if ($open eq '0') {
+						# last session is over	
+						if ($text) {
+							print "Task #$task: '$text' has been stopped since: " . localtime($time) . "\n";
+						} else {
+							print "Task #$task has been stopped since:" .localtime($time) . "\n";
+						}
+							print "Please open a new task to stop.\n"
+					} else {
+						# last session is running
+						my $msg = join(' ', splice(@ARGV, 2));
+
+						# write the task entry
+						open PROJ, ">>", "$ProjDirectory$proj" or die $!;
+							print PROJ join(',', $task, 0, time(), $msg) . "\n" ;
+						close(PROJ);
+						
+						print 'Task #' . $task .' stopped at ' . localtime() . "\n";		
+					}			
+
+			}
+		}
+
+	} elsif ($act eq 'running?') {
+
+		
+		# Shows all currently running tasks
+		opendir(DIR, $ProjDirectory) or die "Can't opendir $ProjDirectory: $!";
+		while (defined($file = readdir(DIR))) {
+			# If the file name is a word, display it
+			if ("$ProjDirectory$file" =~ /\w+$/ && $file =~ /^\w+$/){
+				print "$ProjDirectory$file \n";	
+				open PROJ,"$ProjDirectory/$file";
+				my %runningTasks;
+					while(<PROJ>) {
+					my @line = split(',', $_);
+						### NOTE: The following assumes tasks are always stopped
+						####		later in the file than when they're started
+						if ($line[1] eq '1') {
+							# if a task is running, create it
+							$runningTasks{$line[0]} = $_;
+						} elsif ($line[1] eq '0') {
+							# if a task is stopped, create it
+							delete $runningTasks{$line[0]};
+						} else {
+							# some kind of formatting?
+						}	
+					
+					}
+				for my $task (keys %runningTasks) {
+					my @line = split(',', $runningTasks{$task})	;
+					#remove a trailing new line from the text field
+					chomp $line[3];
+					print "\t", "Task #",$line[0],($line[3] ? " `$line[3]'" : ""), 
+						" has been running since " . localtime($line[2]) . "\n";
+					print "\t (Total time : " , &sec2human(abs(time() - $line[2])) , ")\n";
+				}
+				close PROJ;
+    		}
+		}
+		closedir DIR;	
+	
+	} else {
+
+		# Complains that the action is invalid.
+		die "$act is not a valid action.\n";
+
+	}	
+
+#######
+
+sub sec2human {
+	## GOTTA get a better way to do this
+	 my $secs = shift; 
+		if ($secs >= 365*24*60*60) { return sprintf '%.1fy', $secs/(365 +*24*60*60) } 
+		elsif ($secs >= 24*60*60) { return sprintf '%.1fd', $secs/( 24*60*60) }
+		elsif ($secs >= 60*60) { return sprintf '%.1fh', $secs/( 60*60) } 
+		elsif ($secs >= 60) { return sprintf '%.1fm', $secs/( 60) } 
+		else { return sprintf '%.1fs', $secs}
+
+} 
+	sub projExists {
+
+			# Checks if a project exists, dies otherwise.
+			my $proj = $_[0];
+			my $message = $_[1];
+
+			if (not $proj) {
+				die "No project provided.\n";
+				return 0;
+			} else {
+				# check if project exists
+				if (-e $ProjDirectory . $proj) {
+					# print "Project $proj exists.\n";	
+					return 1;
+				} else {
+			 		die "Could not find $ProjDirectory"."$proj.\n";	
+					return 0;
+				}
+			}
+
+	}
+

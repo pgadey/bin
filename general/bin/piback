@@ -1,0 +1,17 @@
+#!/bin/bash
+# http://blog.taylormcgann.com/tag/rsync/
+# rsync -rtvP --delete --include=$PATTERN* --exclude=* -e "ssh -i $SSH_KEY -p $SSH_PORT" $USERNAME@$DOMAIN:$SERVER_PATH/ $BACKUP_PATH/ 2> $ERROR_LOG
+
+# Typical usage 'upload ~/web/ /home/pgadey/web'
+
+BACKUP_PATH="$1"
+SERVER_PATH="$2"
+
+rsync --human-readable --verbose --progress\
+	--itemize-changes\
+	--recursive\
+	--compress\
+	--partial\
+	-e "ssh"\
+	$BACKUP_PATH\
+	pi@192.168.1.100:/media/backup/$SERVER_PATH

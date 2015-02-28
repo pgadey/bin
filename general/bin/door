@@ -1,0 +1,23 @@
+#!/bin/bash
+
+screen -d -m -S door; 
+
+screen -S door -p 0 -X exec top  
+screen -S door -p 0 -X title top 
+screen -S door -X screen
+
+screen -S door -p 1 -X exec mc 
+screen -S door -p 1 -X title mc
+screen -S door -X screen
+
+screen -S door -p 2 -X exec cmus 
+screen -S door -p 2 -X title cmus 
+screen -S door -X screen
+
+screen -S door -p 3 -X exec irssi 
+screen -S door -p 3 -X title irssi 
+screen -S door -X screen
+
+screen -S door -p 4 -X exec vim  
+screen -S door -p 4 -X title vim 
+screen -S door -X screen

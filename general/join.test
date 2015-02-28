@@ -1,0 +1,142 @@
+=== This is file csk-alarm ===
+#!/bin/bash
+
+# A simple alarm clock hack
+# If passed an argument $1, the alarm will go off at time $1
+# Otherwise, it will go off in eight hours.
+# If passed arguments $1 $2, the alarm will go off at time $1 
+# but the activity will by logged to $2
+
+alarm=/home/pgadey/bin/alarm.mp3
+
+# for a in `seq 10`
+#	do
+#	mpg123 /home/pgadey/bin/alarm.mp3
+#	done
+
+if [ $2 ]
+	then
+	 proj=$2
+	else
+	 proj="test" 
+fi
+
+echo "Using project $proj."
+	
+csk start $proj;
+
+if [ $1 ]
+	then 
+		Start=$(date +%s)
+		Stop=$(date -d $1 +%s)
+		Sleep=$(($Stop- $Start))
+		echo "Alarm set to go off at:"
+		echo `date -d $1`
+		sleep $Sleep;
+	else
+		echo "Alarm set to go off in eight hours."
+		sleep 8h;
+	fi
+
+watch -n 15 mpg123 $alarm;
+
+csk stop $proj;
+=== This is file csk-tally ===
+#!/usr/bin/perl 
+#====================================================
+#
+#         FILE:  csk-tally.pl
+#
+#        USAGE:  ./csk-tally.pl  
+#
+#  DESCRIPTION: Makes csk data a little easier to look at.
+#		
+#			csk-tally proj
+#		
+#		Prints out a list of each task in proj in the format:
+#	
+#			YYYY-MM-DD tasktime 
+#
+#		Where tasktime is the amount of time spent on that task. Note, csk-tally does not sum up all the tasks that occur on a particular day.
+#			
+# 			csk-tally proj total
+#		
+#		Adds additional total and average lines
+#=====================================================
+
+$ProjectDirectory = '/home/pgadey/csk/';
+$proj = $ARGV[0];
+
+my %task; # task stores references to arrays with the following format [start of task, duration of task]
+
+if ($proj) {
+	if (-e $ProjectDirectory . $proj) {
+		open PROJ, "$ProjectDirectory$proj";
+		while (<PROJ>){
+			chomp;
+			my @line = split(',', $_);
+			if ($line[1] eq '0') {
+				# if a task is closed, subtract its start time
+				$task{$line[0]}[1] = abs($task{$line[0]}[0] - $line[2]);		
+		
+			} elsif ($line[1] eq '1') {
+				# note when a task was first opened
+				$task{$line[0]} = [$line[2], 0];
+			}
+		}
+	} else {
+		die 'Project does not exist.';
+		}
+	} else {
+	print "No project. Try 'csk-tally proj [total]' to see the time spent on project proj. Add [total] to the average amount of time spent. \n";
+}
+
+
+# for each task, display what date it started and how long it ran
+# 	format things as "YYYY-MM-DD time"
+
+my $total; # counter to total time used in tasks
+
+foreach $key (sort keys %task) {
+		
+		my @time = localtime($task{$key}[0]);	
+		# format the date as YYYY-MM-DD
+		my $date = join('-',  $time[5] + 1900, sprintf('%.2d', $time[4] + 1), sprintf('%.2d',$time[3]));
+		$total += $task{$key}[1];
+		print $date, ' ', $task{$key}[1], "\n";
+	}
+
+if ($ARGV[1] eq 'total') {
+	my $n;
+	$n = keys(%task); #keep track of number of tasks
+	print "--- \n";
+	#print out a total and avg, make sure to check if $n=0
+	print "Total: $total", ($n == 0 ? "\n" : "\nAverage:" . $total / $n . "\n"); 
+}
+=== This is file csk-today ===
+#!/bin/bash
+
+for i in $(ls $HOME/csk/*)
+do
+    if test -f "$i" 
+    then
+	# echo $i
+	echo "-- $(basename $i) --"
+
+	if [ $1 ]  
+	then
+		csk-tally $(basename $i) | grep $1 
+	else
+		csk-tally $(basename $i) | grep $(date +%F)
+	fi
+    fi
+done
+
+# echo '==Running=='
+# csk running?
+=== This is file csk-watch ===
+#!/bin/bash
+
+csk running?
+echo -e "\n"
+csk-today

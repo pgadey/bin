@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "Query?";
+read que;
+lynx --accept-all-cookies http://google.com/?q=$que;

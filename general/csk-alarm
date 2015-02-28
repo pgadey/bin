@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# A simple alarm clock hack
+# If passed an argument $1, the alarm will go off at time $1
+# Otherwise, it will go off in eight hours.
+# If passed arguments $1 $2, the alarm will go off at time $1 
+# but the activity will by logged to $2
+
+alarm=/home/pgadey/bin/alarm.mp3
+
+# for a in `seq 10`
+#	do
+#	mpg123 /home/pgadey/bin/alarm.mp3
+#	done
+
+if [ $2 ]
+	then
+	 proj=$2
+	else
+	 proj="test" 
+fi
+
+echo "Using project $proj."
+	
+csk start $proj;
+
+if [ $1 ]
+	then 
+		Start=$(date +%s)
+		Stop=$(date -d $1 +%s)
+		Sleep=$(($Stop- $Start))
+		echo "Alarm set to go off at:"
+		echo `date -d $1`
+		sleep $Sleep;
+	else
+		echo "Alarm set to go off in eight hours."
+		sleep 8h;
+	fi
+
+watch -n 15 mpg123 $alarm;
+
+csk stop $proj;

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+xte 'mousemove 9999 0'
+
+tptoggle

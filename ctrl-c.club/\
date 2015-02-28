@@ -1,0 +1,8 @@
+#!/usr/bin/perl
+
+while (<>) {
+	chomp;
+	($date, $index) = split(/ /, $_);
+	print "$date \n";
+	print `date --date="\@$date" +%F\ %H` ;
+}

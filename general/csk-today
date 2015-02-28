@@ -1,0 +1,20 @@
+#!/bin/bash
+
+for i in $(ls $HOME/csk/*)
+do
+    if test -f "$i" 
+    then
+	# echo $i
+	echo "-- $(basename $i) --"
+
+	if [ $1 ]  
+	then
+		csk-tally $(basename $i) | grep $1 
+	else
+		csk-tally $(basename $i) | grep $(date +%F)
+	fi
+    fi
+done
+
+# echo '==Running=='
+# csk running?
